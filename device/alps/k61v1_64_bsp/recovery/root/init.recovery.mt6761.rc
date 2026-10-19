@@ -1,0 +1,71 @@
+on init
+    # USB gadget: configfs on the MUSB controller
+    setprop sys.usb.configfs 1
+    setprop sys.usb.controller musb-hdrc
+    setprop sys.usb.ffs.aio_compat 0
+
+    # Software keymaster/gatekeeper from the stock vendor, needed for FBE
+    start vendor.keymaster-4-1
+    start vendor.gatekeeper-1-0
+
+    # TWRP declares health@2.1 in the ramdisk manifest but never starts it, and
+    # its rc has no interface lines for a lazy start: fastbootd (and TWRP's
+    # battery thread) then block forever in IHealth::getService()
+    start health-hal-2-1
+
+on fs
+    start boot-hal-1-2
+
+# vold keeps a copy of each FBE key in the "fscrypt" session keyring; Android's
+# init creates it during mount_all, which recovery never runs
+on property:ro.crypto.state=encrypted && property:ro.crypto.type=file
+    install_keyring
+
+on post-fs
+    # eMMC boot regions for the A/B preloader
+    symlink /dev/block/mmcblk0boot0 /dev/block/by-name/preloader_a
+    symlink /dev/block/mmcblk0boot1 /dev/block/by-name/preloader_b
+
+service vendor.keymaster-4-1 /vendor/bin/hw/android.hardware.keymaster@4.1-service
+    interface android.hardware.keymaster@4.0::IKeymasterDevice default
+    interface android.hardware.keymaster@4.1::IKeymasterDevice default
+    user root
+    group root drmrpc
+    setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib64/hw:/system/lib64
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+    interface android.hardware.gatekeeper@1.0::IGatekeeper default
+    user root
+    group root
+    setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib64/hw:/system/lib64
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+# MTP over configfs. TWRP switches sys.usb.config to "mtp,adb" once storage is
+# ready and serves MTP on /dev/usb-ffs/mtp; the stock TWRP init.rc only knows
+# adb, sideload and fastboot for configfs, so without this USB goes dead.
+on fs && property:sys.usb.configfs=1
+    mkdir /config/usb_gadget/g1/functions/ffs.mtp
+    mkdir /dev/usb-ffs/mtp 0770 mtp mtp
+    mount functionfs mtp /dev/usb-ffs/mtp rmode=0770,fmode=0660,uid=1024,gid=1024,no_disconnect=1
+
+on property:sys.usb.config=none && property:sys.usb.configfs=1
+    rm /config/usb_gadget/g1/configs/b.1/f2
+
+on property:sys.usb.config=mtp,adb && property:sys.usb.configfs=1
+    start adbd
+
+on property:sys.usb.config=mtp,adb && property:sys.usb.ffs.ready=1 && property:sys.usb.ffs.mtp.ready=1 && property:sys.usb.configfs=1
+    write /config/usb_gadget/g1/UDC "none"
+    rm /config/usb_gadget/g1/configs/b.1/f1
+    rm /config/usb_gadget/g1/configs/b.1/f2
+    write /config/usb_gadget/g1/idProduct 0x4EE2
+    write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "mtp_adb"
+    symlink /config/usb_gadget/g1/functions/ffs.mtp /config/usb_gadget/g1/configs/b.1/f1
+    symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f2
+    write /config/usb_gadget/g1/UDC ${sys.usb.controller}
+    setprop sys.usb.state ${sys.usb.config}

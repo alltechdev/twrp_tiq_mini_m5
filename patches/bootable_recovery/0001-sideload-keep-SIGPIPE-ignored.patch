@@ -1,0 +1,16 @@
+diff --git a/twrpinstall/adb_install.cpp b/twrpinstall/adb_install.cpp
+index 5486b7e..693d052 100755
+--- a/twrpinstall/adb_install.cpp
++++ b/twrpinstall/adb_install.cpp
+@@ -332,7 +332,10 @@ static void CreateMinadbdServiceAndExecuteCommands(
+     }
+   }
+ 
+-  signal(SIGPIPE, SIG_DFL);
++  // Restore TWRP's own SIGPIPE disposition (twrp.cpp main() ignores it).
++  // SIG_DFL here killed TWRP on the next write to a closed pipe, e.g. the
++  // MTP pipe after sideload tore down USB.
++  signal(SIGPIPE, SIG_IGN);
+ }
+ 
+   int twrp_sideload(const char* install_file, Device::BuiltinAction* reboot_action) {

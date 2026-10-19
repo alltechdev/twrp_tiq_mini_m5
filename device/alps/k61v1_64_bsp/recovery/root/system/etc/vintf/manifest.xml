@@ -1,0 +1,32 @@
+<!-- Framework manifest for recovery. Only boot.img is built, so the AOSP one
+     (system/libhidl/vintfdata/manifest.xml) is never generated; without
+     android.hidl.manager declared, keystore2 cannot reach hwservicemanager. -->
+<manifest version="1.0" type="framework">
+    <hal>
+        <name>android.hidl.manager</name>
+        <transport>hwbinder</transport>
+        <version>1.2</version>
+        <interface>
+            <name>IServiceManager</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal>
+        <name>android.hidl.memory</name>
+        <transport arch="32+64">passthrough</transport>
+        <version>1.0</version>
+        <interface>
+            <name>IMapper</name>
+            <instance>ashmem</instance>
+        </interface>
+    </hal>
+    <hal>
+        <name>android.hidl.token</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+            <name>ITokenManager</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</manifest>

@@ -1,0 +1,27 @@
+diff --git a/partition.cpp b/partition.cpp
+index 184cb16..196e002 100755
+--- a/partition.cpp
++++ b/partition.cpp
+@@ -2171,7 +2171,7 @@ bool TWPartition::Wipe_Encryption() {
+ #ifdef TW_INCLUDE_CRYPTO
+ 	if (!UnMount(true))
+ 		return false;
+-	if (Is_Decrypted && !Decrypted_Block_Device.empty()) {
++	if (!Decrypted_Block_Device.empty()) {
+ 		if (delete_crypto_blk_dev((char*)("userdata")) != 0) {
+ 			LOGERR("Error deleting crypto block device, continuing anyway.\n");
+ 		}
+diff --git a/startupArgs.cpp b/startupArgs.cpp
+index 954f3f5..c4b68c0 100755
+--- a/startupArgs.cpp
++++ b/startupArgs.cpp
+@@ -71,7 +71,8 @@ bool startupArgs::processRecoveryArgs(std::vector<std::string> args, int index)
+ 				Send_Intent = arg;
+ 			}
+ 		} else if (args[index].find(WIPE_DATA) != std::string::npos) {
+-			if (!OpenRecoveryScript::Insert_ORS_Command("wipe data\n"))
++			SkipDecryption = true;
++			if (!OpenRecoveryScript::Insert_ORS_Command("format data\n"))
+ 				return false;
+ 		} else if (args[index].find(WIPE_CACHE) != std::string::npos) {
+ 			if (!OpenRecoveryScript::Insert_ORS_Command("wipe cache\n"))
